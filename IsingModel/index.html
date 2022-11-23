@@ -1,0 +1,124 @@
+<!DOCTYPE HTML>
+<html lang="en" title="Ising Model">
+<head>
+<title>Ising Model</title>
+</head>
+<body>
+<h1>Ising Model</h1>
+<canvas id="canvas" width="100px" height="100px" style="display:block"></canvas>
+<form>
+	<input id="beta" type="range" min="0" max = "5" step="0.1" value="0" title="The inverse temperature" oninput="update_beta(this.value)"/>
+	<label for="beta" id="betaText">β: 0</label>
+</form>
+<script src="../MyJsLibs/myrandom.js"></script>
+<script>
+function update_beta(value) {
+	document.getElementById("betaText").innerText = "β: " + value; 
+}
+function printModel(canvas, model)
+{
+	if(!model.imageData)
+		model.imageData = canvas.createImageData(model.width, model.height);
+	const data = model.imageData
+	let i = 0;
+	for(let r = 0; r < model.height; ++r)
+	{
+		for(let c = 0; c < model.width; ++c)
+		{
+			var value = model.atBounded(r, c) < 0 ? 0 : 255;
+			data.data[i + 0] = value;
+			data.data[i + 1] = value;
+			data.data[i + 2] = value;
+			data.data[i + 3] = 255;
+			i += 4;
+		}
+	}
+	canvas.putImageData(data, 0, 0);
+}
+
+function createModelDistribution(width, height, j)
+{
+	function wrap(x, bound)
+	{
+		if(x < 0)
+			return x + bound;
+		else if(x >= bound)
+			return x - bound;
+		else
+			return x;
+	}
+	const initialDistribution = boolDistribution(0.5);
+
+	return function(rnd)
+	{
+		var spins = [];		
+		for(let i = 0; i < width*height; ++i)
+		{
+			spins.push(initialDistribution(rnd) ? 1 : -1);
+		}
+
+		return {
+			spins: spins,
+			width: width,
+			height: height,
+			j: j,
+			atBounded: function(r, c)
+			{
+				return this.spins[r * this.width + c];
+			},
+			at: function (r, c)
+			{
+				r = wrap(r, this.width);
+				c = wrap(c, this.height);
+				return this.atBounded(r, c);
+			},
+			set: function(r, c, v)
+			{
+				this.spins[r * this.width + c] = v;
+			}
+		};
+	}
+}
+
+function stepModel(model, beta, rnd)
+{
+	const r = intDistribution(model.width)(rnd);
+	const c = intDistribution(model.height)(rnd);
+	const delta = energyDiff(model, r, c);
+	if(delta < 0 || (delta > 0 && boolDistribution(Math.exp(-beta * delta))(rnd))) // TO_CHECK: Must this be delta >= 0 or delta > 0?
+		model.set(r, c, -model.at(r, c));
+}
+
+function energyDiff(model, r, c)
+{
+	const self = model.atBounded(r, c);
+	const left = model.at(r, c - 1);
+	const right = model.at(r, c + 1);
+	const top = model.at(r - 1, c);
+	const bottom = model.at(r + 1, c);
+
+	return model.j * self * (left + right + top + bottom);
+}
+
+(function()
+{
+	const betaElem = document.getElementById("beta");
+	const canvasElem = document.getElementById("canvas");
+	const width = canvasElem.width;
+	const height = canvasElem.height;
+	const canvas = canvasElem.getContext('2d');
+	const rnd = xorshift32(2354345);
+	const model = createModelDistribution(width, height, 1)(rnd);
+	
+	window.setInterval(function()
+	{
+		const steps = 100000;
+		const total = [];
+		for(let i = 0; i < steps; ++i)
+			stepModel(model, betaElem.value, rnd);
+		printModel(canvas, model);
+	}, 100);
+})();
+</script>
+</body>
+</html>

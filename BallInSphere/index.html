@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Balls in Sphere - Integrator</title>
+</head>
+<body>
+<h1>Balls in Sphere - Integrator</h1>
+<canvas id="canvas" width="500px" height="500px"></canvas>
+</body>
+<script>
+    (function() {
+        function square(x) {
+            return x*x;
+        }
+        
+        const canvas_element = document.getElementById("canvas");
+        const container = document.getElementById("container");
+        const draw_offset_x = canvas_element.width/2;
+        const draw_offset_y = canvas_element.height/2;
+        const sphere_radius = Math.min(canvas_element.width, canvas_element.height)/2;
+		const sphere_color = 'black';
+		const ball_start_x = 0;
+		const ball_start_y = -sphere_radius/2;
+        const ball_radius = 5;
+		const ball_color = 'red';
+		const ball_offset = 7;
+		const ball_count = 1000;
+        const acceleration = 2;		
+        const dt = 1/20; // Timestep
+        const q = square(sphere_radius - ball_radius); // Constant for collision detection
+
+        function create_ball(startx, starty) {
+            return {
+                px: startx,
+                py: starty,
+                vx: 0,
+                vy: 0,
+                animate: function()
+                {
+					const dt2 = dt/10;
+					for(let i = 0; i < 10; ++i)
+					{
+						const d2 = square(this.px) + square(this.py);
+						if(d2 >= q)
+						{
+							const k = 2 * (this.px * this.vx + this.py * this.vy) / d2;
+							this.vx -= k*this.px;
+							this.vy -= k*this.py;
+						}
+						this.px += dt2 * this.vx;
+						this.py += dt2 * (this.vy + 0.5*dt2*acceleration);
+						this.vy += dt2 * acceleration;
+					}
+                },
+            }
+        }
+
+        const balls = [];
+        for(let i = 0; i < ball_count; ++i)
+        {
+            const a = (2 * Math.PI) * (i/ball_count);
+            const ox = Math.sin(a) * ball_offset;
+            const oy = Math.cos(a) * ball_offset;
+            balls.push(create_ball(ball_start_x + ox, ball_start_y + oy))
+        }
+
+        window.setInterval(function() {
+            for(const ball of balls)
+                ball.animate();      
+        }, dt);
+
+        function render_all()
+        {
+            const ctx = canvas_element.getContext('2d');
+			ctx.clearRect(0, 0, canvas_element.width, canvas_element.height);
+			
+            ctx.beginPath();
+            ctx.ellipse(draw_offset_x, draw_offset_y, sphere_radius, sphere_radius, 0, 0, 2*Math.PI);
+            ctx.fillStyle = sphere_color;
+            ctx.fill();
+         
+            ctx.beginPath();  
+            for(const ball of balls)
+            {             
+                ctx.moveTo(ball.px + draw_offset_x + ball_radius, ball.py + draw_offset_y);
+                ctx.ellipse(ball.px + draw_offset_x, ball.py + draw_offset_y, ball_radius, ball_radius, 0, 0, 2*Math.PI);
+            }
+			ctx.fillStyle = ball_color;
+            ctx.fill();
+			window.requestAnimationFrame(render_all);
+        }
+		render_all();
+    })();
+</script>
+</html>
