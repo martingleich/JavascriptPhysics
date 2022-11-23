@@ -1,0 +1,108 @@
+<!DOCTYPE HTML>
+<head>
+<title>Frequencies</title>
+<style>
+	.card
+	{
+		padding: 2px;
+	}
+</style>
+</head>
+<body>
+<div style="display:grid">
+	<canvas style="grid-row: 1; grid-column: 1" width="800" height="800" id="myCanvas_path">
+	</canvas>
+	<canvas style="grid-row: 1; grid-column: 1" width="800" height="800" id="myCanvas_dot">
+	</canvas>
+</div>
+<script>
+	(function()
+	{	
+		const path = {
+			f1: 2,
+			f2: 3,
+			o1: 0,
+			o2: 0,
+			r1: 100,
+			r2: 100,
+			cx: 400,
+			cy: 400,
+
+			getPoint: function(time)
+			{
+				const v1x = this.r1 * Math.sin((time * this.f1 + this.o1)*Math.PI*2);
+				const v1y = this.r1 * Math.cos((time * this.f1 + this.o1)*Math.PI*2);
+				const v2x = this.r2 * Math.sin((time * this.f2 + this.o2)*Math.PI*2);
+				const v2y = this.r2 * Math.cos((time * this.f2 + this.o2)*Math.PI*2);
+
+				const vx = v1x + v2x + this.cx;
+				const vy = v2y + v2y + this.cy;
+				
+				return {x: vx, y: vy};
+			},
+			getDerivative: function(time)
+			{
+				const v1x = this.r1 * Math.cos((time * this.f1 + this.o1)*Math.PI*2) * this.f1;
+				const v1y = this.r1 * -Math.sin((time * this.f1 + this.o1)*Math.PI*2) * this.f1;
+				const v2x = this.r2 * Math.cos((time * this.f2 + this.o2)*Math.PI*2) * this.f2;
+				const v2y = this.r2 * -Math.sin((time * this.f2 + this.o2)*Math.PI*2) * this.f2;
+
+				const vx = v1x + v2x;
+				const vy = v2y + v2y;
+				
+				return {x: vx, y: vy};			
+			}
+		};
+
+		const pointAnimation = function(){		
+			const canvasElementDot = document.getElementById("myCanvas_dot");
+			const ctxDot = canvasElementDot.getContext('2d');
+			return function draw(curTimeMs)
+			{
+				let runTimeMs = curTimeMs;
+				ctxDot.clearRect(0, 0, canvasElementDot.width, canvasElementDot.height);
+				if(runTimeMs)
+				{
+					const p = path.getPoint(runTimeMs * 0.0001);
+					ctxDot.fillStyle = 'red';
+					ctxDot.beginPath();
+					ctxDot.ellipse(p.x, p.y, 10, 10, 0, 0, Math.PI * 2);
+					ctxDot.fill();
+				}
+
+				window.requestAnimationFrame(draw);
+			}
+		}();
+
+		const backgroundFactory = function(){
+			const canvasElementPath = document.getElementById("myCanvas_path");
+			const ctxPath = canvasElementPath.getContext('2d');
+			const step = 1;
+			function draw(start)
+			{
+				if(start < 5*60*1000)
+				{
+					const firstPos = path.getPoint(start * 0.0001);
+					ctxPath.lineWidth = 2;
+					ctxPath.strokeStyle = 'blue';
+					ctxPath.beginPath();
+					ctxPath.moveTo(firstPos.x, firstPos.y);
+					let time = start;
+					for(let i = 1; i <= 100; ++i)
+					{
+						time = start + i * step;
+						const pos = path.getPoint(time * 0.0001);
+						ctxPath.lineTo(pos.x, pos.y);
+					}
+					ctxPath.stroke();
+					window.setTimeout(function() { draw(time); }, 20);
+				}
+			}
+			return function(){draw(0);};
+		}();
+
+		pointAnimation();
+		backgroundFactory();
+	})();
+</script>
+</body>
