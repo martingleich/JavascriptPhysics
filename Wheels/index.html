@@ -17,6 +17,7 @@
 	<input type="radio" name="wheel" id="wheel_saw" value="SAW" onclick="application.set_wheel(Wheels.saw_tooth(2, 1.5, 5))">
 	<label for="wheel_saw">SAW</label>
 </form>
+<script src="../MyJsLibs/rendering.js"></script>
 <script>
 Math.TAU = Math.PI * 2;
 
@@ -220,6 +221,9 @@ function create_application(canvas_element) {
 		ground: null,
 		/** @type {wheel_rotation_func}*/
 		wheel_rotation: null,
+		/**
+		 * @param {wheel_radius_func} wheel
+		 */
 		set_wheel: function(wheel) {
 			this.wheel_radius = wheel;
 			const {ground, wheel_rotation} = convert_wheel_to_ground(axle_y, wheel, start_logical_x, end_logical_x, 0.01);
@@ -297,25 +301,6 @@ function create_application(canvas_element) {
 	return app;
 }
 
-/**
- * @param {(animation_time:number) => void} render_frame
- */
-function create_animation_loop(render_frame) {
-	let start = undefined;
-	/**
-	 * @param {DOMHighResTimeStamp} timestamp
-	 */
-	function render(timestamp)
-	{
-		let animation_time = undefined;
-		if(start === undefined) {
-			start = timestamp;
-		}
-		render_frame(timestamp - start);
-		window.requestAnimationFrame(render);
-	}
-	return render;
-}
 
 const application = create_application(document.getElementById("canvas"));
 application.set_wheel(Wheels.rectangle(1, 2));

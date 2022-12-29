@@ -15,6 +15,7 @@
 	<canvas style="grid-row: 1; grid-column: 1" width="800" height="800" id="myCanvas_dot">
 	</canvas>
 </div>
+<script src="../MyJsLibs/rendering.js"></script>
 <script>
 	(function()
 	{	
@@ -57,7 +58,7 @@
 		const pointAnimation = function(){		
 			const canvasElementDot = document.getElementById("myCanvas_dot");
 			const ctxDot = canvasElementDot.getContext('2d');
-			return function draw(curTimeMs)
+			return create_animation_loop(function draw(curTimeMs)
 			{
 				let runTimeMs = curTimeMs;
 				ctxDot.clearRect(0, 0, canvasElementDot.width, canvasElementDot.height);
@@ -69,9 +70,7 @@
 					ctxDot.ellipse(p.x, p.y, 10, 10, 0, 0, Math.PI * 2);
 					ctxDot.fill();
 				}
-
-				window.requestAnimationFrame(draw);
-			}
+			});
 		}();
 
 		const backgroundFactory = function(){
@@ -101,7 +100,7 @@
 			return function(){draw(0);};
 		}();
 
-		pointAnimation();
+		window.requestAnimationFrame(pointAnimation);
 		backgroundFactory();
 	})();
 </script>

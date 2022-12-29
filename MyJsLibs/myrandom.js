@@ -1,3 +1,10 @@
+/**
+ * @typedef {() => number} random_generator*/
+
+/**
+ * @param {number} seed The seed value
+ * @return {random_generator}
+*/
 function xorshift32(seed)
 {
 	let x = seed;
@@ -10,6 +17,10 @@ function xorshift32(seed)
 	}
 }
 
+/**
+ * @param {number} upper The exclusive upper bound of the distribution
+ * @returns {(random_generator) => number}
+ */
 function intDistribution(upper)
 {
 	if(upper & -upper == upper)
@@ -31,9 +42,12 @@ function intDistribution(upper)
 		};
 	}
 }
-
-function boolDistribution(prob)
+/**
+ * @param {number} probability The probability for true
+ * @returns {(random_generator) => number}
+ */
+function boolDistribution(probability)
 {
 	const maxIntDistribution = intDistribution(2**20);
-	return function(rnd) { return maxIntDistribution(rnd) < prob * 2**20; };
+	return function(rnd) { return maxIntDistribution(rnd) < probability * 2**20; };
 }
