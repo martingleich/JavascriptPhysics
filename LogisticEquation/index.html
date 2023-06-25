@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logistic equation</title>
+</head>
+<body>
+<h1>Logistic equation</h1>
+<canvas id="canvas" width="800px" height="800px"></canvas>
+</body>
+<script>
+    (function() {
+        const canvas_element = document.getElementById("canvas");
+
+        function render_all(r)
+        {
+			const maxR = 4;
+			// Animate rendering up to the maximal value, then just stop
+			if(r > maxR)
+				return;
+				
+			const ctx = canvas_element.getContext('2d');
+			if(r === 0)
+			{
+				// Clear the background on the first call
+				ctx.fillStyle = "black";
+				ctx.fillRect(0, 0, canvas_element.width, canvas_element.height);
+			}
+			
+			// Take N points, equally distributed in [0, 1]
+			const N = 1000;
+			const points = []
+			for(let n = 0; n < N; ++n)
+				points.push(n / N);
+				
+			// Apply the logistic function to them for K cycles
+			const K = 1000;
+			for(let k = 0; k < K; ++k)
+				for(let i = 0; i < points.length; ++i)
+					points[i] = r * points[i] * (1-points[i]);
+					
+			// Scale the points and clamp them to integers and remove duplicates(speed up rendering)
+			const renderPoints = new Set(points.map(p => Math.floor((1-p) * canvas_element.height - 1)))
+			
+			// Draw all the points
+			ctx.fillStyle = "red";
+			for(const p of renderPoints)
+				ctx.fillRect(r / maxR * canvas_element.width - 1, p, 1, 1)
+
+			// Render next pixel line, in the next frame
+			window.requestAnimationFrame(x => render_all(r + maxR/canvas_element.width));
+        }
+		render_all(0);
+    })();
+</script>
+</html>
