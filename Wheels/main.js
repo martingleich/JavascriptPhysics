@@ -1,7 +1,5 @@
 // @ts-check
 
-import {create_animation_loop} from '../MyJsLibs/rendering.mjs';
-
 const TAU = Math.PI * 2;
 
 /**
