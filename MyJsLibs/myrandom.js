@@ -7,7 +7,7 @@
 */
 function xorshift32(seed)
 {
-	let x = seed;
+	let x = Number(seed);
 	return function()
 	{
 		x ^= x << 13;
@@ -23,6 +23,7 @@ function xorshift32(seed)
  */
 function intDistribution(upper)
 {
+	upper = Number(upper);
 	if(upper & -upper == upper)
 	{
 		return function (rnd) { return (upper * (rnd()&0x7FFFFFFF)) >> 31; };
@@ -50,4 +51,11 @@ function boolDistribution(probability)
 {
 	const maxIntDistribution = intDistribution(2**20);
 	return function(rnd) { return maxIntDistribution(rnd) < probability * 2**20; };
+}
+
+function uniformDistribution(array)
+{
+	if(array.length === 1)
+		return function(rnd) { return array[0]; };
+	return function(rnd) { return array[intDistribution(array.length)(rnd)];};
 }

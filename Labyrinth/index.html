@@ -1,0 +1,342 @@
+<!DOCTYPE HTML>
+<html lang="en" title="Labyrinth">
+<head>
+<title>Labyrinth</title>
+</head>
+<body>
+<h1>Labyrinth</h1>
+<form>
+    <p>
+        <input id="width" type="range" min="1" max = "100" step="1" value="10" title="Width" oninput="fix_ui()"/>
+        <label for="width" id="width_text"></label>
+    </p>
+    <p>
+        <input id="height" type="range" min="1" max = "100" step="1" value="10" title="Height" oninput="fix_ui()"/>
+        <label for="height" id="height_text"></label>
+    </p>
+    <p>
+        <input id="wall_size" type="range" min="1" max = "25" step="1" value="10" title="Wall Size" oninput="fix_ui()"/>
+        <label for="wall_size" id="wall_size_text"></label>
+    </p>
+    <p>
+        <label>Seed</label>
+        <input id="fixed_seed" type="checkbox" title="Fixed Seed" oninput="fix_ui()">
+        <input id="seed" type="text" value="" title="Seed">
+    </p>
+    <p>
+        <input id="show_path" type="checkbox" title="Show Path" oninput="fix_ui(true)">
+        <label for="show_path" id="show_path_text">Show Path</label>
+    </p>
+    <button type="button" onclick="generate(true)">Generate</button>
+</form>
+<canvas id="canvas" width="800px" height="800px" style="display:block"></canvas>
+</body>
+<script src="../MyJsLibs/myrandom.js"></script>
+<script>
+    function get_ui()
+    {
+        return {
+            width: document.getElementById("width"),
+            height: document.getElementById("height"),
+            wall_size: document.getElementById("wall_size"),
+            width_text: document.getElementById("width_text"),
+            height_text: document.getElementById("height_text"),
+            wall_size_text: document.getElementById("wall_size_text"),
+            fixed_seed: document.getElementById("fixed_seed"),
+            seed: document.getElementById("seed"),
+            show_path: document.getElementById("show_path"),
+        };
+    }
+    function fix_ui(redraw)
+    {
+        const ui = get_ui();
+        ui.fix = function()
+        {
+            this.seed.disabled = !this.fixed_seed.checked;
+            this.height_text.innerText = "Height: " + this.height.valueAsNumber;
+            this.width_text.innerText = "Width: " + this.width.valueAsNumber;
+            this.wall_size_text.innerText = "Wall Size: " + this.wall_size.valueAsNumber + "px";
+        };
+        ui.fix();
+        if(redraw)
+            generate(false);
+    }
+    fix_ui();
+
+    const seed_generator = xorshift32(1 + Math.floor(Math.random() * 1000000))
+    function generate(refresh_ui)
+    {
+        const ui = get_ui();
+        ui.refresh_seed = function()
+        {
+            if (!this.fixed_seed.checked && refresh_ui) {
+                this.seed.value = seed_generator();
+            }
+            return this.seed.value;
+        }
+        const seed = ui.refresh_seed();
+        if(!seed)
+            return;
+
+        function create_labyrinth(grid, rnd)
+        {
+            function safe_sampling(remaining, rnd, visited)
+            {
+                while(true) {
+                    // Get a potentially wrong sample
+                    const sample = uniformDistribution(remaining)(rnd);
+                    // Check if the sample is valid
+                    if(grid.get_neighbours(sample).some(nid => !visited.has(nid))) {
+                        // Yes, -> return it
+                        return sample;
+                    } else {
+                        // No, -> Remove it from the search space and try again
+                        remaining.splice(remaining.indexOf(sample), 1);
+                        if(remaining.length === 0)
+                            return null;
+                    }
+                }
+            }
+            // Create a path
+            const visited = new Set();
+            // Mark the start as visited
+            const start = uniformDistribution(grid.all())(rnd)
+            visited.add(start);
+            const remaining = [start];
+            const connections = new Set();
+            while(true)
+            {
+                // Get a random marked point with unvisisted neighbours
+                let point = safe_sampling(remaining, rnd, visited);
+                if(point === null)
+                    break;
+                // Pick a random unvisited neighbour
+                const unvisited_neighbour = uniformDistribution(grid.get_neighbours(point).filter(nid => !visited.has(nid)))(rnd);
+                // Create a connection with this neighbour and mark it as visited
+                visited.add(unvisited_neighbour);
+                remaining.push(unvisited_neighbour);
+                connections.add(grid.make_connection_id(point, unvisited_neighbour));
+            }
+            return connections;
+        }
+        const rnd = xorshift32(seed);
+        const grid = circle_grid(ui.width.value, ui.width.value);
+        const connections = create_labyrinth(grid, rnd);
+
+        // Draw it onto the canvas
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const wallwidth = Number(ui.wall_size.value);
+        const size = canvas.width - 2*wallwidth;
+        const draw_path = ui.show_path.checked;
+        ctx.reset();
+        ctx.translate(wallwidth, wallwidth);
+        ctx.scale(size, size);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if(draw_path) {
+            for(const id of grid.all()) {
+                const {x, y} = grid.get_pos(id);
+                ctx.beginPath();
+                ctx.arc(x, y, 3/size, 0, 2 * Math.PI);
+                ctx.fillStyle = "orange";
+                ctx.fill();
+            }
+
+            // Draw the path
+            ctx.beginPath();
+            ctx.lineWidth = 1/size;
+            for(const conn of connections)
+                grid.draw_path(ctx, conn);
+            ctx.stroke();
+        }
+
+        ctx.beginPath();
+        // Create the walls
+        // A inner wall is a potential connection that is not used.
+        for(const conn of grid.all_connections().filter(conn => !connections.has(conn)))
+            grid.draw_wall(ctx, conn);
+
+        // A outer wall is a property of the whole grid
+        grid.draw_outer_wall(ctx);
+        ctx.lineWidth = wallwidth / size;
+        ctx.strokeStyle = 'blue';
+        ctx.lineCap = "round";
+        ctx.stroke();
+    }
+
+    const proto_grid = {
+        all_connections() {
+            const connections = new Set();
+            for(const c of this.all())
+            {
+                for(const n of this.get_neighbours(c))
+                {
+                    connections.add(this.make_connection_id(c, n));
+                }
+            }
+            return [...connections.keys()];
+        },
+        make_connection_id(from, to) {
+            const f = Math.min(from, to);
+            const t = Math.max(from, to);
+            return this.num_cells*f + t;
+        },
+        split_connection_id(id) {
+            const from = Math.floor(id / this.num_cells);
+            return {
+                from: from,
+                to: id - from * this.num_cells,
+            }
+        }
+    };
+    function rect_grid(width, height)
+    {
+        width = Number(width);
+        height = Number(height);
+        return {
+            __proto__: proto_grid,
+            width: width,
+            height: height,
+            num_cells: width * height,
+            cell_size: 1 / width,
+            make_id(r, c) {
+                return r*this.width + c;
+            },
+            split_id(id) {
+                const r = Math.floor(id / this.width);
+                const c = id - r*this.width;
+                return {r, c};
+            },
+            get_neighbours(id) {
+                const {r, c} = this.split_id(id);
+                const n = [];
+                if(c > 0)
+                    n.push(this.make_id(r, c - 1));
+                if(r > 0)
+                    n.push(this.make_id(r - 1, c));
+                if(c < this.width  - 1)
+                    n.push(this.make_id(r, c + 1));
+                if(r < this.height - 1)
+                    n.push(this.make_id(r + 1, c));
+                return n;
+            },
+            get_pos(id) {
+                const {r, c} = this.split_id(id);
+                return new vector2(this.cell_size / 2 + c*this.cell_size, this.cell_size/2 + r*this.cell_size);
+            },
+            draw_path(ctx, id) {
+                // Assert: There is a connection between from and to
+                const {from, to} = this.split_connection_id(id);
+                const start = this.get_pos(from);
+                const end = this.get_pos(to);
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(end.x, end.y);
+            },
+            draw_wall(ctx, id) {
+                // Assert: There is a connection between from and to
+                const {from, to} = this.split_connection_id(id);
+                const start = this.get_pos(from);
+                const end = this.get_pos(to);
+                const center = end.sub(start).scale(0.5).add(start);
+                const rstart = start.sub(center).reflect().add(center);
+                const rend = end.sub(center).reflect().add(center);
+                ctx.moveTo(rstart.x, rstart.y);
+                ctx.lineTo(rend.x, rend.y);
+            },
+            relative_heigth: height/width,
+            draw_outer_wall(ctx) {
+                ctx.moveTo(0, 0);
+                ctx.lineTo(1, 0);
+                ctx.lineTo(1, this.relative_heigth);
+                ctx.lineTo(0, this.relative_heigth);
+                ctx.lineTo(0, 0);
+            },
+            all() {
+                const all = [];
+                for(let i = 0; i < this.width*this.height; ++i) {
+                    all.push(i);
+                }
+                return all;
+            },
+        };
+    }
+    function circle_grid(rings, sectors)
+    {
+        rings = Number(rings);
+        sectors = Number(sectors);
+        return {
+            __proto__: proto_grid,
+            rings: rings,
+            sectors: sectors,
+            num_cells: rings * sectors,
+            cell_height: 1/(2*sectors + 1),
+            make_id(r, s) {
+                return r * this.sectors + s;
+            },
+            split_id(id) {
+                const r = Math.floor(id / this.sectors);
+                const s = id - r*this.sectors;
+                return {r, s};
+            },
+            get_neighbours(id) {
+                const {r, s} = this.split_id(id);
+                const n = [];
+                n.push(this.make_id(r, (s - 1 + this.sectors) % this.sectors));
+                n.push(this.make_id(r, (s + 1) % this.sectors));
+                if(r > 0)
+                    n.push(this.make_id(r - 1, s));
+                if(r < this.rings - 1)
+                    n.push(this.make_id(r + 1, s));
+                return n;
+            },
+            get_pos_polar(id)
+            {
+                const {r, s} = this.split_id(id);
+                const radius = this.cell_height / 2 + r*this.cell_height;
+                const alpha = s*(2*Math.PI/this.sectors);
+                return {r:radius, a:alpha};
+            },
+            get_pos(id) {
+                const {r, a} = this.get_pos_polar(id);
+                return new vector2(Math.cos(a), Math.sin(a)).scale(r).add(new vector2(0.5, 0.5));
+            },
+            draw_path(ctx, id) {
+                // Assert: There is a connection between from and to
+                const {from, to} = this.split_connection_id(id);
+                const {r:radius_start, a:alpha_start} = this.get_pos_polar(from);
+                const {r:radius_end, a:alpha_end} = this.get_pos_polar(to);
+                const start = this.get_pos(from);
+                ctx.moveTo(start.x, start.y);
+                if(radius_start === radius_end) {
+                    ctx.arc(0.5, 0.5, radius_start, alpha_start, alpha_end, alpha_start === 0 && alpha_end > Math.PI);
+                } else if(alpha_start === alpha_end){
+                    const end = this.get_pos(to);
+                    ctx.lineTo(end.x, end.y);
+                }
+            },
+            draw_wall(ctx, id) {
+            },
+            draw_outer_wall(ctx) {
+                ctx.arc(0.5, 0.5, 0.5, 0, 2*Math.PI)
+            },
+            all() {
+                const all = [];
+                for(let i = 0; i < this.num_cells; ++i) {
+                    all.push(i);
+                }
+                return all;
+            },
+        };
+    }
+
+    function vector2(x, y) {
+        this.x = x;
+        this.y = y;
+        this.proto
+    }
+    vector2.prototype.add = function(v) { return new vector2(this.x + v.x, this.y + v.y); };
+    vector2.prototype.sub = function(v) { return new vector2(this.x - v.x, this.y - v.y); };
+    vector2.prototype.scale = function(v) { return new vector2(this.x * v, this.y * v); };
+    vector2.prototype.reflect = function(v) { return new vector2(this.y, this.x); };
+</script>
+</html>
