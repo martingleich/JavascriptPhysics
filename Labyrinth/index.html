@@ -11,8 +11,8 @@
         <label for="width" id="width_text"></label>
     </p>
     <p>
-        <input id="height" type="range" min="1" max = "100" step="1" value="10" title="Height" oninput="fix_ui()"/>
-        <label for="height" id="height_text"></label>
+        <input id="kind" type="range" min="1" max = "2" step="1" value="1" title="Kind" oninput="fix_ui()"/>
+        <label for="kind" id="kind_text"></label>
     </p>
     <p>
         <input id="wall_size" type="range" min="1" max = "25" step="1" value="10" title="Wall Size" oninput="fix_ui()"/>
@@ -37,10 +37,10 @@
     {
         return {
             width: document.getElementById("width"),
-            height: document.getElementById("height"),
-            wall_size: document.getElementById("wall_size"),
             width_text: document.getElementById("width_text"),
-            height_text: document.getElementById("height_text"),
+            kind: document.getElementById("kind"),
+            kind_text: document.getElementById("kind_text"),
+            wall_size: document.getElementById("wall_size"),
             wall_size_text: document.getElementById("wall_size_text"),
             fixed_seed: document.getElementById("fixed_seed"),
             seed: document.getElementById("seed"),
@@ -53,8 +53,12 @@
         ui.fix = function()
         {
             this.seed.disabled = !this.fixed_seed.checked;
-            this.height_text.innerText = "Height: " + this.height.valueAsNumber;
             this.width_text.innerText = "Width: " + this.width.valueAsNumber;
+            this.kind_text.innerText = "Kind: ";
+            if(this.kind.value == 1)
+                this.kind_text.innerText += "Square";
+            else
+                this.kind_text.innerText += "Circle";
             this.wall_size_text.innerText = "Wall Size: " + this.wall_size.valueAsNumber + "px";
         };
         ui.fix();
@@ -117,10 +121,15 @@
                 remaining.push(unvisited_neighbour);
                 connections.add(grid.make_connection_id(point, unvisited_neighbour));
             }
+
             return connections;
         }
         const rnd = xorshift32(seed);
-        const grid = circle_grid(ui.width.value, ui.width.value);
+        let grid;
+        if(ui.kind.value == 1)
+            grid = rect_grid(ui.width.value, ui.width.value);
+        else
+            grid = circle_grid(ui.width.value, ui.width.value);
         const connections = create_labyrinth(grid, rnd);
 
         // Draw it onto the canvas
