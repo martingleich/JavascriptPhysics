@@ -270,6 +270,7 @@
             sectors: sectors,
             num_cells: rings * sectors,
             cell_height: 1/(2*sectors + 1),
+            cell_angle: 2*Math.PI / sectors,
             make_id(r, s) {
                 return r * this.sectors + s;
             },
@@ -293,7 +294,7 @@
             {
                 const {r, s} = this.split_id(id);
                 const radius = this.cell_height / 2 + r*this.cell_height;
-                const alpha = s*(2*Math.PI/this.sectors);
+                const alpha = s*this.cell_angle;
                 return {r:radius, a:alpha};
             },
             get_pos(id) {
@@ -315,9 +316,31 @@
                 }
             },
             draw_wall(ctx, id) {
+                const {from, to} = this.split_connection_id(id);
+                const {r:radius_start, a:alpha_start} = this.get_pos_polar(from);
+                const {r:radius_end, a:alpha_end} = this.get_pos_polar(to);
+                const start = this.get_pos(from);
+                const end = this.get_pos(to);
+                if(radius_start === radius_end) {
+                    let alpha; 
+                    if(alpha_start === 0 && alpha_end > Math.PI)
+                        alpha = (2*Math.PI + alpha_end) / 2;
+                    else
+                        alpha = (alpha_start + alpha_end) / 2;
+                    var radius_inner = radius_start - this.cell_height / 2;
+                    var radius_outer = radius_start + this.cell_height / 2;
+                    ctx.moveTo(0.5 + Math.cos(alpha) * radius_inner, 0.5 + Math.sin(alpha) * radius_inner);
+                    ctx.lineTo(0.5 + Math.cos(alpha) * radius_outer, 0.5 + Math.sin(alpha) * radius_outer);
+                } else if(alpha_start === alpha_end){
+                    const radius = (radius_start + radius_end) / 2;
+                    const start = alpha_start - this.cell_angle / 2;
+                    ctx.moveTo(0.5 + Math.cos(start) * radius, 0.5 + Math.sin(start) * radius);
+                    ctx.arc(0.5, 0.5, (radius_start + radius_end) / 2, start, start + this.cell_angle, alpha_start === 0 && alpha_end > Math.PI);
+                }
             },
             draw_outer_wall(ctx) {
-                ctx.arc(0.5, 0.5, 0.5, 0, 2*Math.PI)
+                ctx.moveTo(1 - this.cell_height / 2, 0.5);
+                ctx.arc(0.5, 0.5, 0.5 - this.cell_height / 2, 0, 2*Math.PI)
             },
             all() {
                 const all = [];
