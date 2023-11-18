@@ -115,12 +115,16 @@
                 if(point === null)
                     break;
                 // Pick a random unvisited neighbour
+                // TODO: Allow biases
+                // How to encode biasing???
                 const unvisited_neighbour = uniformDistribution(grid.get_neighbours(point).filter(nid => !visited.has(nid)))(rnd);
                 // Create a connection with this neighbour and mark it as visited
                 visited.add(unvisited_neighbour);
                 remaining.push(unvisited_neighbour);
                 connections.add(grid.make_connection_id(point, unvisited_neighbour));
             }
+
+            // TODO: Increase connectivity, add random connections.
 
             return connections;
         }
